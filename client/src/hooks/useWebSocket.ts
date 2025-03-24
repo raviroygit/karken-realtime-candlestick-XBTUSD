@@ -11,6 +11,44 @@ export function useWebSocket(
   const socketRef = useRef<WebSocket | null>(null);
   const subscriptionsRef = useRef<KrakenWebSocketSubscription[]>([]);
 
+  // Track reconnect attempts for exponential backoff
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectDelay = 30000; // 30 seconds max
+  const baseReconnectDelay = 1000; // Start with 1 second
+
+  const resetReconnectAttempts = useCallback(() => {
+    reconnectAttemptsRef.current = 0;
+  }, []);
+
+  const getReconnectDelay = useCallback(() => {
+    // Exponential backoff with jitter and maximum limit
+    const attempt = reconnectAttemptsRef.current;
+    const exponentialDelay = Math.min(
+      maxReconnectDelay,
+      baseReconnectDelay * Math.pow(2, attempt)
+    );
+    // Add jitter (0-20% random variation)
+    const jitter = Math.random() * 0.2 * exponentialDelay;
+    return exponentialDelay + jitter;
+  }, []);
+
+  // Forward declaration of subscribe to break circular dependency
+  const sendSubscription = useCallback((socket: WebSocket, subscription: KrakenWebSocketSubscription) => {
+    // Format the subscription message according to Kraken API specs
+    const subscribeMessage = {
+      name: "subscribe",
+      reqid: Math.floor(Math.random() * 1000000),
+      subscription: {
+        name: subscription.name,
+        ...(subscription.interval ? { interval: subscription.interval } : {})
+      },
+      pair: subscription.token ? [subscription.token] : [], // Kraken expects pair as an array
+    };
+
+    console.log('Sending subscription:', JSON.stringify(subscribeMessage));
+    socket.send(JSON.stringify(subscribeMessage));
+  }, []);
+
   const connectWebSocket = useCallback(() => {
     try {
       // Connect to our server-side WebSocket proxy 
@@ -24,15 +62,37 @@ export function useWebSocket(
       
       const socket = new WebSocket(wsUrl);
       
+      // Set connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (socket.readyState !== WebSocket.OPEN) {
+          console.log('WebSocket connection timed out, closing and retrying');
+          socket.close();
+        }
+      }, 10000); // 10 second connection timeout
+      
       socket.onopen = () => {
         console.log('WebSocket connection established');
+        clearTimeout(connectionTimeout);
         setIsConnected(true);
         setError(null);
+        resetReconnectAttempts(); // Reset on successful connection
+        
+        // Set a ping interval to keep the connection alive
+        const pingInterval = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+          } else {
+            clearInterval(pingInterval);
+          }
+        }, 30000); // Send ping every 30 seconds
+        
+        // Store the interval for cleanup
+        (socket as any).pingInterval = pingInterval;
         
         // Resubscribe to channels if there were any
         if (subscriptionsRef.current.length > 0) {
           subscriptionsRef.current.forEach(subscription => {
-            subscribe(subscription);
+            sendSubscription(socket, subscription);
           });
         }
         
@@ -49,6 +109,19 @@ export function useWebSocket(
             if (data.type === 'status') {
               console.log('WebSocket status update:', data);
               setIsConnected(data.connected);
+              
+              // If Kraken WebSocket connection status changed, resubscribe
+              if (data.connected && subscriptionsRef.current.length > 0) {
+                console.log('WebSocket connection status changed, re-subscribing to OHLC updates');
+                subscriptionsRef.current.forEach(subscription => {
+                  sendSubscription(socket, subscription);
+                });
+              }
+              return;
+            }
+            
+            // Ignore pong responses
+            if (data.type === 'pong') {
               return;
             }
             
@@ -66,23 +139,41 @@ export function useWebSocket(
       
       socket.onclose = (event) => {
         console.log('WebSocket connection closed:', event.code, event.reason);
+        clearTimeout(connectionTimeout);
+        
+        // Clear ping interval if it exists
+        if ((socket as any).pingInterval) {
+          clearInterval((socket as any).pingInterval);
+        }
+        
         setIsConnected(false);
         
         if (onClose) onClose();
         
         // Try to reconnect after a delay if the connection was not closed intentionally
         if (event.code !== 1000) {
+          reconnectAttemptsRef.current += 1;
+          const delay = getReconnectDelay();
+          
+          console.log(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${reconnectAttemptsRef.current})`);
+          
           setTimeout(() => {
+            if (socketRef.current !== socket) {
+              return; // A new socket was created in the meantime
+            }
+            
             if (socketRef.current?.readyState !== WebSocket.OPEN) {
               connectWebSocket();
             }
-          }, 3000);
+          }, delay);
         }
       };
       
       socket.onerror = (event) => {
         console.error('WebSocket error:', event);
         setError(new Error('WebSocket connection error'));
+        
+        // No need to reconnect here, the onclose handler will do it
       };
       
       socketRef.current = socket;
@@ -90,8 +181,11 @@ export function useWebSocket(
       const error = err instanceof Error ? err : new Error('Unknown WebSocket error');
       setError(error);
       console.error('Error setting up WebSocket:', error);
+      
+      // Try to reconnect after a delay
+      setTimeout(connectWebSocket, getReconnectDelay());
     }
-  }, [onMessage, onOpen, onClose]);
+  }, [onMessage, onOpen, onClose, sendSubscription, getReconnectDelay, resetReconnectAttempts]);
 
   const disconnect = useCallback(() => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {

@@ -62,8 +62,8 @@ export const krakenAssetPairsResponseSchema = z.object({
 });
 
 export const tickerInfoSchema = z.object({
-  a: z.tuple([z.string(), z.number(), z.string()]),
-  b: z.tuple([z.string(), z.number(), z.string()]),
+  a: z.tuple([z.string(), z.union([z.string(), z.number()]), z.string()]),
+  b: z.tuple([z.string(), z.union([z.string(), z.number()]), z.string()]),
   c: z.tuple([z.string(), z.string()]),
   v: z.tuple([z.string(), z.string()]),
   p: z.tuple([z.string(), z.string()]),

@@ -228,9 +228,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Periodically check for and clean up stale client connections
   setInterval(() => {
     let removedCount = 0;
+    const now = Date.now();
+    const inactivityTimeout = 60000; // 1 minute
+    
     krakenClients.forEach(client => {
-      if (client.readyState !== WebSocket.OPEN) {
+      // Check if the connection is not open or has been inactive
+      if (client.readyState !== WebSocket.OPEN || 
+          ((client as any).lastActivity && now - (client as any).lastActivity > inactivityTimeout)) {
         krakenClients.delete(client);
+        
+        // Try to close the connection if it's still open
+        if (client.readyState === WebSocket.OPEN) {
+          try {
+            client.close(1000, "Connection inactive");
+          } catch (e) {
+            // Ignore close errors
+          }
+        }
+        
         removedCount++;
       }
     });
@@ -238,7 +253,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (removedCount > 0) {
       console.log(`Cleaned up ${removedCount} stale WebSocket connections. Remaining: ${krakenClients.size}`);
     }
-  }, 30000); // Check every 30 seconds
+    
+    // Ping all remaining clients to check if they're still alive
+    krakenClients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        try {
+          client.ping();
+        } catch (e) {
+          console.error('Error sending ping:', e);
+        }
+      }
+    });
+  }, 15000); // Check every 15 seconds
   
   // Setup shared Kraken WebSocket connection
   function setupKrakenWebSocket() {
@@ -341,6 +367,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Update last activity timestamp
         (ws as any).lastActivity = Date.now();
+        
+        // Try to parse the message to see if it's a ping
+        try {
+          const parsedMessage = JSON.parse(message.toString());
+          
+          // Handle ping messages with a pong response
+          if (parsedMessage.type === 'ping') {
+            ws.send(JSON.stringify({
+              type: 'pong',
+              timestamp: Date.now(),
+              echo: parsedMessage.timestamp
+            }));
+            return;
+          }
+        } catch (parseError) {
+          // Not JSON or couldn't parse, continue with normal handling
+        }
         
         // Forward subscription requests to Kraken
         if (krakenWs.readyState === WebSocket.OPEN) {
