@@ -13,7 +13,8 @@ export function useWebSocket(
 
   // Track reconnect attempts for exponential backoff
   const reconnectAttemptsRef = useRef(0);
-  const maxReconnectDelay = 30000; // 30 seconds max
+  const maxReconnectAttempts = 5; // Maximum number of reconnection attempts
+  const maxReconnectDelay = 10000; // 10 seconds max
   const baseReconnectDelay = 1000; // Start with 1 second
 
   const resetReconnectAttempts = useCallback(() => {
@@ -151,11 +152,12 @@ export function useWebSocket(
         if (onClose) onClose();
         
         // Try to reconnect after a delay if the connection was not closed intentionally
-        if (event.code !== 1000) {
+        // and we haven't exceeded the maximum number of reconnection attempts
+        if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current += 1;
           const delay = getReconnectDelay();
           
-          console.log(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${reconnectAttemptsRef.current})`);
+          console.log(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${reconnectAttemptsRef.current} of ${maxReconnectAttempts})`);
           
           setTimeout(() => {
             if (socketRef.current !== socket) {
@@ -166,6 +168,9 @@ export function useWebSocket(
               connectWebSocket();
             }
           }, delay);
+        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          console.log(`Maximum reconnection attempts (${maxReconnectAttempts}) reached. Giving up.`);
+          setError(new Error('Failed to connect after multiple attempts'));
         }
       };
       
@@ -182,8 +187,15 @@ export function useWebSocket(
       setError(error);
       console.error('Error setting up WebSocket:', error);
       
-      // Try to reconnect after a delay
-      setTimeout(connectWebSocket, getReconnectDelay());
+      // Try to reconnect after a delay if we haven't exceeded max attempts
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        reconnectAttemptsRef.current += 1;
+        const delay = getReconnectDelay();
+        console.log(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${reconnectAttemptsRef.current} of ${maxReconnectAttempts})`);
+        setTimeout(connectWebSocket, delay);
+      } else {
+        console.log(`Maximum reconnection attempts (${maxReconnectAttempts}) reached. Giving up.`);
+      }
     }
   }, [onMessage, onOpen, onClose, sendSubscription, getReconnectDelay, resetReconnectAttempts]);
 
