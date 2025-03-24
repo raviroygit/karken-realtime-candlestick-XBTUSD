@@ -216,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Maximum number of clients we'll support
-  const MAX_CLIENTS = 20;
+  const MAX_CLIENTS = 100; // Increased from 20 to handle more concurrent connections
   
   // Track the number of active Kraken connections
   let activeKrakenConnections = 0;
@@ -224,6 +224,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a shared Kraken WebSocket connection
   let sharedKrakenWs: WebSocket | null = null;
   let krakenClients = new Set<WebSocket>();
+  
+  // Periodically check for and clean up stale client connections
+  setInterval(() => {
+    let removedCount = 0;
+    krakenClients.forEach(client => {
+      if (client.readyState !== WebSocket.OPEN) {
+        krakenClients.delete(client);
+        removedCount++;
+      }
+    });
+    
+    if (removedCount > 0) {
+      console.log(`Cleaned up ${removedCount} stale WebSocket connections. Remaining: ${krakenClients.size}`);
+    }
+  }, 30000); // Check every 30 seconds
   
   // Setup shared Kraken WebSocket connection
   function setupKrakenWebSocket() {
@@ -299,6 +314,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
     
+    // Add client metadata
+    (ws as any).isAlive = true;
+    (ws as any).lastActivity = Date.now();
+    
+    // Handle pong messages to keep track of connection liveness
+    ws.on('pong', () => {
+      (ws as any).isAlive = true;
+    });
+    
     // Add to our client tracking
     krakenClients.add(ws);
     
@@ -315,6 +339,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Handle messages from client
     ws.on('message', (message) => {
       try {
+        // Update last activity timestamp
+        (ws as any).lastActivity = Date.now();
+        
         // Forward subscription requests to Kraken
         if (krakenWs.readyState === WebSocket.OPEN) {
           krakenWs.send(message);
@@ -344,6 +371,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sharedKrakenWs.close();
         sharedKrakenWs = null;
       }
+    });
+    
+    // Handle errors
+    ws.on('error', (error) => {
+      console.error('WebSocket client error:', error);
+      try {
+        ws.close();
+      } catch (e) {
+        // Ignore close errors
+      }
+      krakenClients.delete(ws);
     });
   });
 
