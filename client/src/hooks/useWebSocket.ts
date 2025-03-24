@@ -13,10 +13,9 @@ export function useWebSocket(
 
   const connectWebSocket = useCallback(() => {
     try {
-      // Use secure WebSocket if the page is served over HTTPS
+      // Connect to our server-side WebSocket proxy 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = 'ws.kraken.com'; // Kraken's WebSocket server
-      const wsUrl = `${protocol}//${host}`;
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
       
       if (socketRef.current?.readyState === WebSocket.OPEN) {
         console.log('WebSocket is already connected');

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { SwapHorizontal, MenuBook, BarChart2 } from 'lucide-react';
+import { RefreshCw, BookOpen, BarChart2 } from 'lucide-react';
 
 // Mock data structure that would normally come from API
 interface RecentTrade {
@@ -104,7 +104,7 @@ const MarketInsights: React.FC = () => {
       <Card className="bg-surface shadow-lg">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium flex items-center">
-            <MenuBook className="h-4 w-4 mr-2 text-primary" />
+            <BookOpen className="h-4 w-4 mr-2 text-primary" />
             Order Book
           </CardTitle>
         </CardHeader>

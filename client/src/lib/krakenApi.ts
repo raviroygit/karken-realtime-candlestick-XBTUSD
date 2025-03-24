@@ -23,7 +23,7 @@ export async function fetchHistoricalOHLC(
     params.append('since', since.toString());
   }
 
-  const response = await fetch(`${KRAKEN_API_BASE}/OHLC?${params.toString()}`);
+  const response = await fetch(`${API_BASE}/ohlc?${params.toString()}`);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch OHLC data: ${response.statusText}`);
@@ -61,7 +61,7 @@ export async function fetchHistoricalOHLC(
 }
 
 export async function fetchTradingPairs(): Promise<TradingPair[]> {
-  const response = await fetch(`${KRAKEN_API_BASE}/AssetPairs`);
+  const response = await fetch(`${API_BASE}/assetpairs`);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch trading pairs: ${response.statusText}`);
@@ -88,7 +88,7 @@ export async function fetchTradingPairs(): Promise<TradingPair[]> {
 export async function fetchTickerInfo(pair: string): Promise<Ticker> {
   const params = new URLSearchParams({ pair });
   
-  const response = await fetch(`${KRAKEN_API_BASE}/Ticker?${params.toString()}`);
+  const response = await fetch(`${API_BASE}/ticker?${params.toString()}`);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch ticker info: ${response.statusText}`);
@@ -129,9 +129,11 @@ export async function fetchTickerInfo(pair: string): Promise<Ticker> {
   return ticker;
 }
 
-// Create a WebSocket connection to Kraken's API
+// Create a WebSocket connection to our server-side proxy
 export function createKrakenWebSocket(): WebSocket {
-  return new WebSocket('wss://ws.kraken.com');
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}/ws`;
+  return new WebSocket(wsUrl);
 }
 
 // Parse WebSocket OHLC data update
