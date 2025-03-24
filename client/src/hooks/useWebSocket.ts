@@ -107,15 +107,35 @@ export function useWebSocket(
       if (!subscriptionsRef.current.some(sub => sub.name === subscription.name)) {
         subscriptionsRef.current.push(subscription);
       }
+      console.log('WebSocket not connected, saving subscription for later');
       return;
     }
 
-    const subscribeMessage = {
+    // Format the subscription message according to Kraken API specs
+    // https://docs.kraken.com/websockets/#message-subscribe
+    const subscribeMessage: {
+      name: string;
+      reqid: number;
+      subscription: {
+        name: string;
+        interval?: number;
+      };
+      pair: string[];
+    } = {
       name: "subscribe",
       reqid: Math.floor(Math.random() * 1000000),
-      subscription: subscription
+      subscription: {
+        name: subscription.name,
+      },
+      pair: [subscription.token], // Kraken expects pair as an array
     };
 
+    // Add interval to subscription if provided
+    if (subscription.interval) {
+      subscribeMessage.subscription.interval = subscription.interval;
+    }
+
+    console.log('Sending subscription:', JSON.stringify(subscribeMessage));
     socketRef.current.send(JSON.stringify(subscribeMessage));
     
     // Add to subscriptions if not already there
@@ -126,15 +146,37 @@ export function useWebSocket(
 
   const unsubscribe = useCallback((subscription: KrakenWebSocketSubscription) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      // Update stored subscriptions even if not connected
+      subscriptionsRef.current = subscriptionsRef.current.filter(
+        sub => sub.name !== subscription.name
+      );
       return;
     }
 
-    const unsubscribeMessage = {
+    // Format the unsubscribe message according to Kraken API specs
+    const unsubscribeMessage: {
+      name: string;
+      reqid: number;
+      subscription: {
+        name: string;
+        interval?: number;
+      };
+      pair: string[];
+    } = {
       name: "unsubscribe",
       reqid: Math.floor(Math.random() * 1000000),
-      subscription: subscription
+      subscription: {
+        name: subscription.name,
+      },
+      pair: [subscription.token], // Kraken expects pair as an array
     };
 
+    // Add interval to unsubscription if provided
+    if (subscription.interval) {
+      unsubscribeMessage.subscription.interval = subscription.interval;
+    }
+
+    console.log('Sending unsubscription:', JSON.stringify(unsubscribeMessage));
     socketRef.current.send(JSON.stringify(unsubscribeMessage));
     
     // Remove from stored subscriptions
