@@ -37,13 +37,28 @@ export function useKrakenData() {
         try {
           message = JSON.parse(message);
         } catch (e) {
-          console.warn('Unable to parse WebSocket message as JSON:', message);
+          console.warn('Unable to parse WebSocket message as JSON:', e);
           return;
         }
       }
+
+      // Handle subscription confirmation messages
+      if (Array.isArray(message) && message[1]?.channelName === 'ohlc') {
+        console.log('Successfully subscribed to OHLC channel:', message);
+        return;
+      }
+
+      // Handle subscription status messages
+      if (message && typeof message === 'object' && message.status === 'subscribed') {
+        console.log('Subscription confirmed:', message);
+        return;
+      }
       
-      // Handle OHLC update messages
-      if (Array.isArray(message) && message[2] === 'ohlc') {
+      // Handle OHLC update messages (format depends on exact response type from Kraken)
+      if (Array.isArray(message) && 
+         (message[2] === 'ohlc' || // Handle standard format
+          (message[0] && typeof message[0] === 'number'))) { // Handle channel ID format
+        
         const update = parseOHLCUpdate(message);
         
         if (update) {
@@ -57,9 +72,11 @@ export function useKrakenData() {
               updatedData[lastIndex] = update;
               return updatedData;
             } 
-            // Otherwise add the new candle
+            // Otherwise add the new candle and maintain a reasonable length
             else {
-              return [...prevData, update];
+              // Keep up to 500 candles to avoid excessive memory usage
+              const newData = [...prevData, update]; 
+              return newData.slice(-500);
             }
           });
           
@@ -78,11 +95,14 @@ export function useKrakenData() {
       }
       
       // Handle heartbeat and system messages
-      if (Array.isArray(message) && message[0] === 0) {
+      if (Array.isArray(message)) {
         if (message[1] === 'heartbeat') {
           console.log('Received heartbeat from Kraken');
         } else if (message[1] === 'systemStatus') {
           console.log('Kraken system status:', message[2]);
+        } else if (message[1] === 'error') {
+          console.error('Kraken WebSocket error:', message[2]);
+          // You might want to handle specific errors here
         }
       }
     } catch (error) {
@@ -173,19 +193,35 @@ export function useKrakenData() {
   // Load data when pair or interval changes
   useEffect(() => {
     if (selectedPair) {
+      console.log(`Fetching data for ${selectedPair.name} with interval ${interval}m`);
       fetchHistoricalData();
       
-      // Update WebSocket subscription
+      // Update WebSocket subscription - only when connected
       if (isConnected) {
-        // Unsubscribe from previous pair/interval if needed
-        unsubscribe({ name: 'ohlc' });
+        // Use a small delay to ensure any previous unsubscriptions complete
+        const timer = setTimeout(() => {
+          // Unsubscribe from previous pair/interval
+          unsubscribe({ 
+            name: 'ohlc',
+            // Include all subscription details to ensure proper unsubscribe
+            interval,
+            token: selectedPair.wsname || selectedPair.id
+          });
+          
+          // Subscribe to the new pair/interval after a small delay
+          setTimeout(() => {
+            console.log(`Subscribing to ${selectedPair.name} OHLC with interval ${interval}m`);
+            subscribe({
+              name: 'ohlc',
+              interval,
+              token: selectedPair.wsname || selectedPair.id
+            });
+          }, 300);
+        }, 100);
         
-        // Subscribe to the new pair/interval
-        subscribe({
-          name: 'ohlc',
-          interval,
-          token: selectedPair.wsname || selectedPair.id
-        });
+        return () => {
+          clearTimeout(timer);
+        };
       }
     }
   }, [selectedPair, interval, isConnected, fetchHistoricalData, subscribe, unsubscribe]);
@@ -212,8 +248,9 @@ export function useKrakenData() {
     // Initial update
     updateTicker();
     
-    // Set up interval
-    const tickerId = window.setInterval(updateTicker, 10000); // Update every 10 seconds
+    // Set up interval - using a more conservative update frequency
+    // to avoid overwhelming the API and causing rate limit issues
+    const tickerId = window.setInterval(updateTicker, 15000); // Update every 15 seconds
     
     // Clean up interval on unmount
     return () => {
@@ -221,14 +258,24 @@ export function useKrakenData() {
     };
   }, [updateTicker]);
 
-  // Refresh data when connection state changes
+  // Monitor connection state and re-subscribe if needed
   useEffect(() => {
+    // Only subscribe when connected and we have a selected pair
     if (isConnected && selectedPair) {
-      subscribe({
-        name: 'ohlc',
-        interval,
-        token: selectedPair.wsname || selectedPair.id
-      });
+      console.log('WebSocket connection status changed, re-subscribing to OHLC updates');
+      
+      // Short delay to make sure connection is fully established
+      const timer = setTimeout(() => {
+        subscribe({
+          name: 'ohlc',
+          interval,
+          token: selectedPair.wsname || selectedPair.id
+        });
+      }, 500);
+      
+      return () => {
+        clearTimeout(timer);
+      };
     }
   }, [isConnected, selectedPair, interval, subscribe]);
 

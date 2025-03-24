@@ -124,9 +124,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const data = await response.json();
+      const data = await response.json() as { error?: string[], result?: any };
       
-      if (data.error && data.error.length > 0) {
+      if (data.error && Array.isArray(data.error) && data.error.length > 0) {
         console.error('Kraken API returned error:', data.error);
         return res.status(400).json({ error: data.error });
       }

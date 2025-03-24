@@ -139,22 +139,38 @@ export function createKrakenWebSocket(): WebSocket {
 // Parse WebSocket OHLC data update
 export function parseOHLCUpdate(message: any): OHLCData | null {
   try {
-    // Kraken OHLC updates come in a specific format
-    if (Array.isArray(message) && message[2] === 'ohlc') {
-      const data = message[1];
-      
-      return {
-        time: new Date(parseInt(data[1]) * 1000),
-        open: parseFloat(data[2]),
-        high: parseFloat(data[3]),
-        low: parseFloat(data[4]),
-        close: parseFloat(data[5]),
-        volume: parseFloat(data[7]),
-      };
+    let data: any[] | null = null;
+    
+    // Format 1: [channelID, data, channelName, pair]
+    if (Array.isArray(message) && typeof message[0] === 'number' && message[2] === 'ohlc') {
+      data = message[1];
+    } 
+    // Format 2: [data, channelName, pair]
+    else if (Array.isArray(message) && Array.isArray(message[0]) && message[1] === 'ohlc') {
+      data = message[0];
     }
+    // Format 3: Custom structure from our server
+    else if (Array.isArray(message) && message[2] === 'ohlc' && Array.isArray(message[1])) {
+      data = message[1];
+    }
+    
+    if (data && Array.isArray(data)) {
+      // Make sure we have enough elements in the data array
+      if (data.length >= 8) {
+        return {
+          time: new Date(parseInt(String(data[1])) * 1000),
+          open: parseFloat(String(data[2])),
+          high: parseFloat(String(data[3])),
+          low: parseFloat(String(data[4])),
+          close: parseFloat(String(data[5])),
+          volume: parseFloat(String(data[7])),
+        };
+      }
+    }
+    
     return null;
   } catch (error) {
-    console.error('Error parsing OHLC update:', error);
+    console.error('Error parsing OHLC update:', error, 'Message:', message);
     return null;
   }
 }
