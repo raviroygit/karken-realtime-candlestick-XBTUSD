@@ -127,7 +127,7 @@ export function useWebSocket(
       subscription: {
         name: subscription.name,
       },
-      pair: [subscription.token], // Kraken expects pair as an array
+      pair: subscription.token ? [subscription.token] : [], // Kraken expects pair as an array
     };
 
     // Add interval to subscription if provided
@@ -168,7 +168,7 @@ export function useWebSocket(
       subscription: {
         name: subscription.name,
       },
-      pair: [subscription.token], // Kraken expects pair as an array
+      pair: subscription.token ? [subscription.token] : [], // Kraken expects pair as an array
     };
 
     // Add interval to unsubscription if provided

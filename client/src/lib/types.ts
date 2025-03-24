@@ -94,5 +94,5 @@ export interface KrakenWebSocketSubscribeMessage {
 export interface KrakenWebSocketSubscription {
   name: string;
   interval?: number;
-  token?: string;
+  token: string;  // Changed from optional to required
 }
