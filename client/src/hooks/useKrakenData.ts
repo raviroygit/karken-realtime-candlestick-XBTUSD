@@ -190,23 +190,36 @@ export function useKrakenData() {
     }
   }, [selectedPair, interval, isConnected, fetchHistoricalData, subscribe, unsubscribe]);
 
-  // Set up periodic ticker updates
-  useEffect(() => {
-    const updateTicker = async () => {
-      if (selectedPair) {
+  // Define the ticker update function outside useEffect to avoid any issues
+  const updateTicker = useCallback(() => {
+    if (selectedPair) {
+      // Use a non-async wrapper function to avoid Promise return
+      const fetchData = async () => {
         try {
           const tickerInfo = await fetchTickerInfo(selectedPair.id);
           setTicker(tickerInfo);
         } catch (err) {
           console.error('Error updating ticker:', err);
         }
-      }
-    };
-    
-    const tickerId = setInterval(updateTicker, 10000); // Update every 10 seconds
-    
-    return () => clearInterval(tickerId);
+      };
+      
+      fetchData();
+    }
   }, [selectedPair]);
+  
+  // Set up periodic ticker updates
+  useEffect(() => {
+    // Initial update
+    updateTicker();
+    
+    // Set up interval
+    const tickerId = window.setInterval(updateTicker, 10000); // Update every 10 seconds
+    
+    // Clean up interval on unmount
+    return () => {
+      window.clearInterval(tickerId);
+    };
+  }, [updateTicker]);
 
   // Refresh data when connection state changes
   useEffect(() => {
@@ -214,6 +227,7 @@ export function useKrakenData() {
       subscribe({
         name: 'ohlc',
         interval,
+        token: selectedPair.wsname || selectedPair.id
       });
     }
   }, [isConnected, selectedPair, interval, subscribe]);

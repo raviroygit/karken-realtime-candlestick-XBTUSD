@@ -15,6 +15,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     clientTracking: true
   });
 
+  // Rate limiting and retry logic for Kraken API
+  const requestTimestamps: { [endpoint: string]: number[] } = {};
+  const MAX_REQUESTS_PER_MINUTE = 15; // Kraken API limit is about 15-20 per minute
+  
+  // Helper for rate limiting with exponential backoff
+  function isRateLimited(endpoint: string): [boolean, number] {
+    const now = Date.now();
+    const oneMinuteAgo = now - 60000;
+    
+    // Initialize or clean up old timestamps
+    if (!requestTimestamps[endpoint]) {
+      requestTimestamps[endpoint] = [];
+    }
+    
+    // Remove timestamps older than 1 minute
+    requestTimestamps[endpoint] = requestTimestamps[endpoint].filter(
+      time => time > oneMinuteAgo
+    );
+    
+    // Check if we're over the limit
+    if (requestTimestamps[endpoint].length >= MAX_REQUESTS_PER_MINUTE) {
+      // Calculate backoff time based on how many requests over the limit
+      const overLimit = requestTimestamps[endpoint].length - MAX_REQUESTS_PER_MINUTE + 1;
+      const backoffMs = Math.min(30000, Math.pow(2, overLimit) * 1000); // Max 30 second backoff
+      
+      return [true, backoffMs];
+    }
+    
+    // Not rate limited, add current timestamp
+    requestTimestamps[endpoint].push(now);
+    return [false, 0];
+  }
+  
+  // Retry logic with exponential backoff
+  async function fetchWithRetry(url: string, maxRetries = 3) {
+    let retries = 0;
+    let lastError;
+    
+    while (retries < maxRetries) {
+      try {
+        // Check rate limiting
+        const [limited, backoffMs] = isRateLimited('kraken');
+        if (limited) {
+          console.log(`Rate limited, backing off for ${backoffMs}ms`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
+        
+        const response = await fetch(url);
+        
+        // If too many requests, add exponential backoff
+        if (response.status === 429) {
+          const backoffMs = Math.pow(2, retries) * 1000;
+          console.log(`429 Too Many Requests, retrying in ${backoffMs}ms`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+          retries++;
+          continue;
+        }
+        
+        return response;
+      } catch (error) {
+        lastError = error;
+        const backoffMs = Math.pow(2, retries) * 1000;
+        console.error(`Error fetching ${url}, retrying in ${backoffMs}ms:`, error);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+        retries++;
+      }
+    }
+    
+    throw lastError || new Error(`Failed to fetch ${url} after ${maxRetries} retries`);
+  }
+  
   // Define Kraken API proxy endpoints
   // This helps to avoid CORS issues with direct client requests
   app.get('/api/kraken/ohlc', async (req, res) => {
@@ -42,11 +113,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const url = `https://api.kraken.com/0/public/OHLC?${params.toString()}`;
       
-      // Add a small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Use retry logic with rate limiting
+      const response = await fetchWithRetry(url);
       
-      const response = await fetch(url);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Kraken API error: ${response.status} ${errorText}`);
+        return res.status(response.status).json({ 
+          error: [`Error fetching OHLC data: ${response.status}`] 
+        });
+      }
+      
       const data = await response.json();
+      
+      if (data.error && data.error.length > 0) {
+        console.error('Kraken API returned error:', data.error);
+        return res.status(400).json({ error: data.error });
+      }
       
       res.json(data);
     } catch (error) {
@@ -74,11 +157,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const url = `https://api.kraken.com/0/public/Ticker?${params.toString()}`;
       
-      // Add a small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Use retry logic with rate limiting
+      const response = await fetchWithRetry(url);
       
-      const response = await fetch(url);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Kraken API error: ${response.status} ${errorText}`);
+        return res.status(response.status).json({ 
+          error: [`Error fetching ticker data: ${response.status}`] 
+        });
+      }
+      
       const data = await response.json();
+      
+      if (data.error && data.error.length > 0) {
+        console.error('Kraken API returned error:', data.error);
+        return res.status(400).json({ error: data.error });
+      }
       
       res.json(data);
     } catch (error) {
@@ -93,11 +188,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const url = 'https://api.kraken.com/0/public/AssetPairs';
       
-      // Add a small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Use retry logic with rate limiting
+      const response = await fetchWithRetry(url);
       
-      const response = await fetch(url);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Kraken API error: ${response.status} ${errorText}`);
+        return res.status(response.status).json({ 
+          error: [`Error fetching asset pairs: ${response.status}`] 
+        });
+      }
+      
       const data = await response.json();
+      
+      if (data.error && data.error.length > 0) {
+        console.error('Kraken API returned error:', data.error);
+        return res.status(400).json({ error: data.error });
+      }
       
       res.json(data);
     } catch (error) {
@@ -109,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Maximum number of clients we'll support
-  const MAX_CLIENTS = 5;
+  const MAX_CLIENTS = 20;
   
   // Track the number of active Kraken connections
   let activeKrakenConnections = 0;
