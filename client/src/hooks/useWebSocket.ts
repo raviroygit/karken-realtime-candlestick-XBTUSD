@@ -41,10 +41,26 @@ export function useWebSocket(
       
       socket.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
-          onMessage(data);
+          // Try to parse as JSON first (our server status messages)
+          try {
+            const data = JSON.parse(event.data);
+            
+            // Handle server-status messages specially
+            if (data.type === 'status') {
+              console.log('WebSocket status update:', data);
+              setIsConnected(data.connected);
+              return;
+            }
+            
+            // Forward other JSON messages to handler
+            onMessage(data);
+          } catch (parseError) {
+            // If not JSON, it's probably a binary message from Kraken
+            // Forward the raw data to the handler
+            onMessage(event.data);
+          }
         } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
+          console.error('Error handling WebSocket message:', err);
         }
       };
       

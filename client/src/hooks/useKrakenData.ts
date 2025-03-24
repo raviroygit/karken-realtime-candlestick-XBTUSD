@@ -26,30 +26,68 @@ export function useKrakenData() {
 
   // Process WebSocket messages
   const handleWsMessage = useCallback((message: any) => {
-    // Handle OHLC update messages
-    if (Array.isArray(message) && message[2] === 'ohlc') {
-      const update = parseOHLCUpdate(message);
-      
-      if (update) {
-        setOhlcData(prevData => {
-          // Handle both updates to existing candles and new candles
-          const lastIndex = prevData.length - 1;
-          
-          // If the last candle has the same timestamp, update it
-          if (lastIndex >= 0 && prevData[lastIndex].time.getTime() === update.time.getTime()) {
-            const updatedData = [...prevData];
-            updatedData[lastIndex] = update;
-            return updatedData;
-          } 
-          // Otherwise add the new candle
-          else {
-            return [...prevData, update];
-          }
-        });
+    try {
+      // Skip status messages that are handled by the WebSocket hook
+      if (typeof message === 'object' && message?.type === 'status') {
+        return;
       }
+      
+      // Handle message as string (from binary data)
+      if (typeof message === 'string') {
+        try {
+          message = JSON.parse(message);
+        } catch (e) {
+          console.warn('Unable to parse WebSocket message as JSON:', message);
+          return;
+        }
+      }
+      
+      // Handle OHLC update messages
+      if (Array.isArray(message) && message[2] === 'ohlc') {
+        const update = parseOHLCUpdate(message);
+        
+        if (update) {
+          setOhlcData(prevData => {
+            // Handle both updates to existing candles and new candles
+            const lastIndex = prevData.length - 1;
+            
+            // If the last candle has the same timestamp, update it
+            if (lastIndex >= 0 && prevData[lastIndex].time.getTime() === update.time.getTime()) {
+              const updatedData = [...prevData];
+              updatedData[lastIndex] = update;
+              return updatedData;
+            } 
+            // Otherwise add the new candle
+            else {
+              return [...prevData, update];
+            }
+          });
+          
+          // Update ticker data with the latest price
+          setTicker(prev => {
+            if (prev) {
+              return {
+                ...prev,
+                last: update.close.toString(),
+                updated: new Date().toLocaleTimeString()
+              };
+            }
+            return prev;
+          });
+        }
+      }
+      
+      // Handle heartbeat and system messages
+      if (Array.isArray(message) && message[0] === 0) {
+        if (message[1] === 'heartbeat') {
+          console.log('Received heartbeat from Kraken');
+        } else if (message[1] === 'systemStatus') {
+          console.log('Kraken system status:', message[2]);
+        }
+      }
+    } catch (error) {
+      console.error('Error processing WebSocket message:', error);
     }
-    
-    // Handle other message types if needed (trades, ticker, etc.)
   }, []);
 
   const { isConnected, subscribe, unsubscribe } = useWebSocket(
@@ -60,6 +98,7 @@ export function useKrakenData() {
         subscribe({
           name: 'ohlc',
           interval,
+          token: selectedPair.wsname || selectedPair.id
         });
       }
     }
@@ -145,6 +184,7 @@ export function useKrakenData() {
         subscribe({
           name: 'ohlc',
           interval,
+          token: selectedPair.wsname || selectedPair.id
         });
       }
     }
