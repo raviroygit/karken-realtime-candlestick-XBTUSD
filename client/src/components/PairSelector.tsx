@@ -39,9 +39,9 @@ const PairSelector: React.FC<PairSelectorProps> = ({
           <SelectTrigger className="bg-background border-gray-700 focus:ring-primary focus:ring-1 w-full sm:w-48">
             <SelectValue placeholder="Select Trading Pair" />
           </SelectTrigger>
-          <SelectContent className="bg-background border-gray-700">
+          <SelectContent className="bg-background border-gray-700 text-white">
             {pairs.map((pair) => (
-              <SelectItem key={pair.id} value={pair.id}>
+              <SelectItem key={pair.id} value={pair.id} className='text-white'>
                 {pair.name}
               </SelectItem>
             ))}

@@ -26,7 +26,7 @@ const Dashboard: React.FC = () => {
   } = useKrakenData();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen flex flex-col bg-white text-black">
       {/* Header */}
       <header className="bg-surface px-4 py-3 shadow-md">
         <div className="container mx-auto flex flex-col sm:flex-row justify-between items-center">
@@ -39,14 +39,14 @@ const Dashboard: React.FC = () => {
               pairs={availablePairs}
               selectedPair={selectedPair}
               onSelect={setSelectedPair}
-              className="flex-grow sm:flex-grow-0"
+              className="flex-grow sm:flex-grow-0 z-10"
             />
-            <IntervalSelector
+            {/* <IntervalSelector
               intervals={timeIntervals}
               selectedInterval={interval}
               onSelect={setInterval}
               className="flex-grow sm:flex-grow-0"
-            />
+            /> */}
           </div>
         </div>
       </header>
@@ -71,13 +71,12 @@ const Dashboard: React.FC = () => {
           />
 
           {/* Market Insights */}
-          <MarketInsights />
+          {/* <MarketInsights /> */}
         </div>
       </main>
 
       {/* Footer */}
       <footer className="bg-surface p-4 text-center text-textSecondary text-xs">
-        <p>Data provided by Kraken API. This application is for demonstration purposes only.</p>
         <p className="mt-1">
           {isConnected 
             ? "✓ WebSocket connected - receiving real-time updates" 

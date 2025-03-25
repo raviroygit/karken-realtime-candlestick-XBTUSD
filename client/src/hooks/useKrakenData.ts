@@ -44,13 +44,13 @@ export function useKrakenData() {
 
       // Handle subscription confirmation messages
       if (Array.isArray(message) && message[1]?.channelName === 'ohlc') {
-        console.log('Successfully subscribed to OHLC channel:', message);
+        // console.log('Successfully subscribed to OHLC channel:', message);
         return;
       }
 
       // Handle subscription status messages
       if (message && typeof message === 'object' && message.status === 'subscribed') {
-        console.log('Subscription confirmed:', message);
+        // console.log('Subscription confirmed:', message);
         return;
       }
       
@@ -97,23 +97,23 @@ export function useKrakenData() {
       // Handle heartbeat and system messages
       if (Array.isArray(message)) {
         if (message[1] === 'heartbeat') {
-          console.log('Received heartbeat from Kraken');
+          // console.log('Received heartbeat from Kraken');
         } else if (message[1] === 'systemStatus') {
-          console.log('Kraken system status:', message[2]);
+          // console.log('Kraken system status:', message[2]);
         } else if (message[1] === 'error') {
-          console.error('Kraken WebSocket error:', message[2]);
+          // console.error('Kraken WebSocket error:', message[2]);
           // You might want to handle specific errors here
         }
       }
     } catch (error) {
-      console.error('Error processing WebSocket message:', error);
+      // console.error('Error processing WebSocket message:', error);
     }
   }, []);
 
   const { isConnected, subscribe, unsubscribe } = useWebSocket(
     handleWsMessage,
     () => {
-      console.log('WebSocket connected - subscribing to OHLC updates');
+      // console.log('WebSocket connected - subscribing to OHLC updates');
       if (selectedPair) {
         subscribe({
           name: 'ohlc',
@@ -146,7 +146,7 @@ export function useKrakenData() {
       localStorage.setItem('krakenChartInterval', interval.toString());
       
     } catch (err) {
-      console.error('Error fetching historical data:', err);
+      // console.error('Error fetching historical data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch market data');
     } finally {
       setIsLoading(false);
@@ -171,7 +171,7 @@ export function useKrakenData() {
           }
         }
       } catch (err) {
-        console.error('Error fetching trading pairs:', err);
+        // console.error('Error fetching trading pairs:', err);
         // Fall back to default pairs
       }
     };
@@ -193,7 +193,7 @@ export function useKrakenData() {
   // Load data when pair or interval changes
   useEffect(() => {
     if (selectedPair) {
-      console.log(`Fetching data for ${selectedPair.name} with interval ${interval}m`);
+      // console.log(`Fetching data for ${selectedPair.name} with interval ${interval}m`);
       fetchHistoricalData();
       
       // Update WebSocket subscription - only when connected
@@ -210,7 +210,7 @@ export function useKrakenData() {
           
           // Subscribe to the new pair/interval after a small delay
           setTimeout(() => {
-            console.log(`Subscribing to ${selectedPair.name} OHLC with interval ${interval}m`);
+            // console.log(`Subscribing to ${selectedPair.name} OHLC with interval ${interval}m`);
             subscribe({
               name: 'ohlc',
               interval,
@@ -235,7 +235,7 @@ export function useKrakenData() {
           const tickerInfo = await fetchTickerInfo(selectedPair.id);
           setTicker(tickerInfo);
         } catch (err) {
-          console.error('Error updating ticker:', err);
+          // console.error('Error updating ticker:', err);
         }
       };
       
@@ -262,7 +262,7 @@ export function useKrakenData() {
   useEffect(() => {
     // Only subscribe when connected and we have a selected pair
     if (isConnected && selectedPair) {
-      console.log('WebSocket connection status changed, re-subscribing to OHLC updates');
+      // console.log('WebSocket connection status changed, re-subscribing to OHLC updates');
       
       // Short delay to make sure connection is fully established
       const timer = setTimeout(() => {

@@ -58,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check rate limiting
         const [limited, backoffMs] = isRateLimited('kraken');
         if (limited) {
-          console.log(`Rate limited, backing off for ${backoffMs}ms`);
+          // console.log(`Rate limited, backing off for ${backoffMs}ms`);
           await new Promise(resolve => setTimeout(resolve, backoffMs));
         }
         
@@ -67,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // If too many requests, add exponential backoff
         if (response.status === 429) {
           const backoffMs = Math.pow(2, retries) * 1000;
-          console.log(`429 Too Many Requests, retrying in ${backoffMs}ms`);
+          // console.log(`429 Too Many Requests, retrying in ${backoffMs}ms`);
           await new Promise(resolve => setTimeout(resolve, backoffMs));
           retries++;
           continue;
@@ -77,7 +77,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         lastError = error;
         const backoffMs = Math.pow(2, retries) * 1000;
-        console.error(`Error fetching ${url}, retrying in ${backoffMs}ms:`, error);
+        // console.error(`Error fetching ${url}, retrying in ${backoffMs}ms:`, error);
         await new Promise(resolve => setTimeout(resolve, backoffMs));
         retries++;
       }
@@ -118,7 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Kraken API error: ${response.status} ${errorText}`);
+        // console.error(`Kraken API error: ${response.status} ${errorText}`);
         return res.status(response.status).json({ 
           error: [`Error fetching OHLC data: ${response.status}`] 
         });
@@ -127,13 +127,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json() as { error?: string[], result?: any };
       
       if (data.error && Array.isArray(data.error) && data.error.length > 0) {
-        console.error('Kraken API returned error:', data.error);
+        // console.error('Kraken API returned error:', data.error);
         return res.status(400).json({ error: data.error });
       }
       
       res.json(data);
     } catch (error) {
-      console.error('Error proxying Kraken OHLC request:', error);
+      // console.error('Error proxying Kraken OHLC request:', error);
       res.status(500).json({ 
         error: ['Failed to fetch OHLC data from Kraken API'] 
       });
@@ -162,22 +162,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Kraken API error: ${response.status} ${errorText}`);
+        // console.error(`Kraken API error: ${response.status} ${errorText}`);
         return res.status(response.status).json({ 
           error: [`Error fetching ticker data: ${response.status}`] 
         });
       }
       
-      const data = await response.json();
+      const data:any = await response.json();
       
       if (data.error && data.error.length > 0) {
-        console.error('Kraken API returned error:', data.error);
+        // console.error('Kraken API returned error:', data.error);
         return res.status(400).json({ error: data.error });
       }
       
       res.json(data);
     } catch (error) {
-      console.error('Error proxying Kraken Ticker request:', error);
+      // console.error('Error proxying Kraken Ticker request:', error);
       res.status(500).json({ 
         error: ['Failed to fetch ticker data from Kraken API']
       });
@@ -193,22 +193,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Kraken API error: ${response.status} ${errorText}`);
+        // console.error(`Kraken API error: ${response.status} ${errorText}`);
         return res.status(response.status).json({ 
           error: [`Error fetching asset pairs: ${response.status}`] 
         });
       }
       
-      const data = await response.json();
+      const data:any = await response.json();
       
       if (data.error && data.error.length > 0) {
-        console.error('Kraken API returned error:', data.error);
+        // console.error('Kraken API returned error:', data.error);
         return res.status(400).json({ error: data.error });
       }
       
       res.json(data);
     } catch (error) {
-      console.error('Error proxying Kraken AssetPairs request:', error);
+      // console.error('Error proxying Kraken AssetPairs request:', error);
       res.status(500).json({ 
         error: ['Failed to fetch asset pairs from Kraken API']
       });
@@ -251,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     if (removedCount > 0) {
-      console.log(`Cleaned up ${removedCount} stale WebSocket connections. Remaining: ${krakenClients.size}`);
+      // console.log(`Cleaned up ${removedCount} stale WebSocket connections. Remaining: ${krakenClients.size}`);
     }
     
     // Ping all remaining clients to check if they're still alive
@@ -260,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           client.ping();
         } catch (e) {
-          console.error('Error sending ping:', e);
+          // console.error('Error sending ping:', e);
         }
       }
     });
@@ -274,12 +274,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     activeKrakenConnections++;
-    console.log(`Creating Kraken WebSocket connection (active: ${activeKrakenConnections})`);
+    // console.log(`Creating Kraken WebSocket connection (active: ${activeKrakenConnections})`);
     
     sharedKrakenWs = new WebSocket('wss://ws.kraken.com');
     
     sharedKrakenWs.on('open', () => {
-      console.log('Connected to Kraken WebSocket API');
+      // console.log('Connected to Kraken WebSocket API');
       
       // Resubscribe all clients if we reconnected
       krakenClients.forEach(client => {
@@ -300,11 +300,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     sharedKrakenWs.on('error', (error) => {
-      console.error('Kraken WebSocket error:', error);
+      // console.error('Kraken WebSocket error:', error);
     });
     
     sharedKrakenWs.on('close', () => {
-      console.log('Kraken WebSocket connection closed');
+      // console.log('Kraken WebSocket connection closed');
       sharedKrakenWs = null;
       activeKrakenConnections--;
       
@@ -317,7 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Attempt to reconnect if we still have clients
       if (krakenClients.size > 0) {
-        console.log('Attempting to reconnect to Kraken WebSocket...');
+        // console.log('Attempting to reconnect to Kraken WebSocket...');
         setTimeout(setupKrakenWebSocket, 2000);
       }
     });
@@ -327,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Handle WebSocket connections
   wss.on('connection', (ws) => {
-    console.log('WebSocket client connected');
+    // console.log('WebSocket client connected');
     
     // Check if we have too many connections already
     if (krakenClients.size >= MAX_CLIENTS) {
@@ -389,7 +389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (krakenWs.readyState === WebSocket.OPEN) {
           krakenWs.send(message);
         } else {
-          console.log('Kraken WebSocket not ready, buffering message');
+          // console.log('Kraken WebSocket not ready, buffering message');
           // Notify client of pending connection
           ws.send(JSON.stringify({ 
             type: 'status', 
@@ -398,19 +398,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }));
         }
       } catch (error) {
-        console.error('Error handling client message:', error);
+        // console.error('Error handling client message:', error);
       }
     });
     
     // Handle client disconnect
     ws.on('close', () => {
-      console.log('WebSocket client disconnected');
+      // console.log('WebSocket client disconnected');
       krakenClients.delete(ws);
       
       // If no more clients, close the shared connection
       if (krakenClients.size === 0 && sharedKrakenWs && 
           sharedKrakenWs.readyState === WebSocket.OPEN) {
-        console.log('No more clients, closing Kraken WebSocket');
+        // console.log('No more clients, closing Kraken WebSocket');
         sharedKrakenWs.close();
         sharedKrakenWs = null;
       }
@@ -418,7 +418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Handle errors
     ws.on('error', (error) => {
-      console.error('WebSocket client error:', error);
+      // console.error('WebSocket client error:', error);
       try {
         ws.close();
       } catch (e) {

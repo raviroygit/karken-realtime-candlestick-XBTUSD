@@ -46,7 +46,7 @@ export function useWebSocket(
       pair: subscription.token ? [subscription.token] : [], // Kraken expects pair as an array
     };
 
-    console.log('Sending subscription:', JSON.stringify(subscribeMessage));
+    // console.log('Sending su/bscription:', JSON.stringify(subscribeMessage));
     socket.send(JSON.stringify(subscribeMessage));
   }, []);
 
@@ -57,7 +57,7 @@ export function useWebSocket(
       const wsUrl = `${protocol}//${window.location.host}/ws`;
       
       if (socketRef.current?.readyState === WebSocket.OPEN) {
-        console.log('WebSocket is already connected');
+        // console.log('WebSocket is already cosnnected');
         return;
       }
       
@@ -66,13 +66,13 @@ export function useWebSocket(
       // Set connection timeout
       const connectionTimeout = setTimeout(() => {
         if (socket.readyState !== WebSocket.OPEN) {
-          console.log('WebSocket connection timed out, closing and retrying');
+          // console.log('WebSocket connection timed out, closing and retrying');
           socket.close();
         }
       }, 10000); // 10 second connection timeout
       
       socket.onopen = () => {
-        console.log('WebSocket connection established');
+        // console.log('WebSocket connection established');
         clearTimeout(connectionTimeout);
         setIsConnected(true);
         setError(null);
@@ -85,7 +85,7 @@ export function useWebSocket(
           } else {
             clearInterval(pingInterval);
           }
-        }, 30000); // Send ping every 30 seconds
+        }, 1000); // Send ping every 30 seconds
         
         // Store the interval for cleanup
         (socket as any).pingInterval = pingInterval;
@@ -108,12 +108,12 @@ export function useWebSocket(
             
             // Handle server-status messages specially
             if (data.type === 'status') {
-              console.log('WebSocket status update:', data);
+              // console.log('WebSocket status update:', data);
               setIsConnected(data.connected);
               
               // If Kraken WebSocket connection status changed, resubscribe
               if (data.connected && subscriptionsRef.current.length > 0) {
-                console.log('WebSocket connection status changed, re-subscribing to OHLC updates');
+                // console.log('WebSocket connection status changed, re-subscribing to OHLC updates');
                 subscriptionsRef.current.forEach(subscription => {
                   sendSubscription(socket, subscription);
                 });
@@ -134,12 +134,12 @@ export function useWebSocket(
             onMessage(event.data);
           }
         } catch (err) {
-          console.error('Error handling WebSocket message:', err);
+          // console.error('Error handling WebSocket message:', err);
         }
       };
       
       socket.onclose = (event) => {
-        console.log('WebSocket connection closed:', event.code, event.reason);
+        // console.log('WebSocket connection closed:', event.code, event.reason);
         clearTimeout(connectionTimeout);
         
         // Clear ping interval if it exists
@@ -157,7 +157,7 @@ export function useWebSocket(
           reconnectAttemptsRef.current += 1;
           const delay = getReconnectDelay();
           
-          console.log(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${reconnectAttemptsRef.current} of ${maxReconnectAttempts})`);
+          // console.log(`Reconnecting in ${Math.round(delasy/1000)}s (attempt ${reconnectAttemptsRef.current} of ${maxReconnectAttempts})`);
           
           setTimeout(() => {
             if (socketRef.current !== socket) {
@@ -169,13 +169,13 @@ export function useWebSocket(
             }
           }, delay);
         } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-          console.log(`Maximum reconnection attempts (${maxReconnectAttempts}) reached. Giving up.`);
+          // console.log(`Maximum reconnection attempts (${maxReconnectAttempts}) reached. Giving up.`);
           setError(new Error('Failed to connect after multiple attempts'));
         }
       };
       
       socket.onerror = (event) => {
-        console.error('WebSocket error:', event);
+        // console.error('WebSocket error:', event);
         setError(new Error('WebSocket connection error'));
         
         // No need to reconnect here, the onclose handler will do it
@@ -185,16 +185,16 @@ export function useWebSocket(
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Unknown WebSocket error');
       setError(error);
-      console.error('Error setting up WebSocket:', error);
+      // console.error('Error setting up WebSocket:', error);
       
       // Try to reconnect after a delay if we haven't exceeded max attempts
       if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         reconnectAttemptsRef.current += 1;
         const delay = getReconnectDelay();
-        console.log(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${reconnectAttemptsRef.current} of ${maxReconnectAttempts})`);
+        // console.log(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${reconnectAttemptsRef.current} of ${maxReconnectAttempts})`);
         setTimeout(connectWebSocket, delay);
       } else {
-        console.log(`Maximum reconnection attempts (${maxReconnectAttempts}) reached. Giving up.`);
+        // console.log(`Maximum reconnection attempts (${maxReconnectAttempts}) reached. Giving up.`);
       }
     }
   }, [onMessage, onOpen, onClose, sendSubscription, getReconnectDelay, resetReconnectAttempts]);
@@ -213,7 +213,7 @@ export function useWebSocket(
       if (!subscriptionsRef.current.some(sub => sub.name === subscription.name)) {
         subscriptionsRef.current.push(subscription);
       }
-      console.log('WebSocket not connected, saving subscription for later');
+      // console.log('WebSocket not connected, saving subscription for later');
       return;
     }
 
@@ -241,7 +241,7 @@ export function useWebSocket(
       subscribeMessage.subscription.interval = subscription.interval;
     }
 
-    console.log('Sending subscription:', JSON.stringify(subscribeMessage));
+    // console.log('Sending subscription:', JSON.stringify(subscribeMessage));
     socketRef.current.send(JSON.stringify(subscribeMessage));
     
     // Add to subscriptions if not already there
@@ -282,7 +282,7 @@ export function useWebSocket(
       unsubscribeMessage.subscription.interval = subscription.interval;
     }
 
-    console.log('Sending unsubscription:', JSON.stringify(unsubscribeMessage));
+    // console.log('Sending unsubscription:', JSON.stringify(unsubscribeMessage));
     socketRef.current.send(JSON.stringify(unsubscribeMessage));
     
     // Remove from stored subscriptions

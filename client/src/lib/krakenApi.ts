@@ -170,7 +170,7 @@ export function parseOHLCUpdate(message: any): OHLCData | null {
     
     return null;
   } catch (error) {
-    console.error('Error parsing OHLC update:', error, 'Message:', message);
+    // console.error('Error parsing OHLC update:', error, 'Message:', message);
     return null;
   }
 }

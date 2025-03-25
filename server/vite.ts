@@ -19,14 +19,14 @@ export function log(message: string, source = "express") {
     hour12: true,
   });
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+  // console.log(`${formattedTime} [${source}] ${message}`);
 }
 
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: true,
+    allowedHosts: undefined, // ✅ Fix: Use undefined (or an array of allowed hosts)
   };
 
   const vite = await createViteServer({

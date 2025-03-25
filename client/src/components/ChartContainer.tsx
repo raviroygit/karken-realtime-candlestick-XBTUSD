@@ -56,7 +56,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({
               variant={chartType === 'candles' ? 'secondary' : 'outline'}
               size="sm"
               onClick={() => onChartTypeChange('candles')}
-              className={chartType === 'candles' ? 'bg-gray-800' : 'bg-background'}
+              className={chartType === 'candles' ? 'bg-gray-800' : 'bg-white'}
             >
               <BarChart2 className="h-4 w-4 mr-1" />
               Candles
@@ -65,7 +65,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({
               variant={chartType === 'line' ? 'secondary' : 'outline'}
               size="sm"
               onClick={() => onChartTypeChange('line')}
-              className={chartType === 'line' ? 'bg-gray-800' : 'bg-background'}
+              className={chartType === 'line' ? 'bg-gray-800' : 'bg-white'}
             >
               <TrendingUp className="h-4 w-4 mr-1" />
               Line
@@ -76,7 +76,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({
             <Button 
               variant="outline" 
               size="icon" 
-              className="bg-background hover:bg-gray-700"
+              className="bg-white hover:bg-gray-700"
               onClick={handleZoomIn}
               title="Zoom In"
             >
@@ -85,7 +85,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({
             <Button 
               variant="outline" 
               size="icon" 
-              className="bg-background hover:bg-gray-700"
+              className="bg-white hover:bg-gray-700"
               onClick={handleZoomOut}
               title="Zoom Out"
             >
@@ -94,7 +94,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({
             <Button 
               variant="outline" 
               size="icon" 
-              className="bg-background hover:bg-gray-700"
+              className="bg-white hover:bg-gray-700"
               onClick={handleReset}
               title="Reset View"
             >
